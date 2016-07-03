@@ -131,6 +131,9 @@ namespace EventSystemLibrary{
             std::function< void (T...) > f = binding<LC>(bf,ins,i...);
             func.push_back(f);
         }
+        void AddListener(void (*f)(T...)){
+            func.push_back(f);
+        }
         ~Event(){ func.clear(); }
     };
     
@@ -145,11 +148,13 @@ namespace EventSystemLibrary{
     public:
         template <class LC,typename F = void (LC::*)(T...),typename... I>
         void AddListener(std::string name,F f,LC * ins, I... i){ events[name].template AddListener<LC>(f,ins,i...); }
+        void AddListener(std::string name,void (*f)(T...))     { events[name].AddListener(f); }
         void Invoke(std::string name,T... t)                   { events[name].Invoke(t...); }
         ~EventManager(){ events.clear(); }
     };
 
 }
+
         //line130 events[name].template AddListener<LC>(f,ins,i...); <- なぜtemplateが必要なのかわからない
 /*
  
