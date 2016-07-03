@@ -32,8 +32,12 @@
  使い方は下記を参照してください。
  基本的にはUnityのUnityEventににてると思います。
  
- 特徴は、引数の個数と種類に制限がないことだと思います。
+ 特徴は、
  
+ ・引数の個数が7つまでであること
+ ・関数の指定に文字列を使うこと
+ 
+ です。
  プログラミング初級者ですので、危険なところや、表現に誤りがあるかもしれません。
  詳しい方、アドバイスお願いいたします。
  
@@ -50,16 +54,25 @@
  EventManager<int> eventTest
  EventManager<int,char> eventTest
  
- なお、例ではint,charとしていますが、引数の個数、種類は自由です。
+ なお、例ではint,charとしていますが、引数の個数は7つまで、種類は自由です。
  
  2.
  イベントに関数を登録します。（？）
  AddListenerメソッドを使います。
  
- eventTest.AddListener("イベント名",登録する関数ポインタ);
+ eventTest.AddListener("イベント名",登録するメンバ関数ポインタ,メンバを持つインスタンス,引数の数だけ_ARG);
  
  
  というようにします。
+ 
+ 引数の数だけ_ARGとありますが、たとえば
+ A クラスのインスタンス a が持つ、
+ a.Test(int,int,char);
+ という関数を登録する場合
+ 
+ eventTest.AddListener("OnClick",&A::Test,a,_Arg,_Arg,_Arg);
+ 
+ となります。
  
  
  3.
@@ -78,61 +91,66 @@
  
  
  機能
- EventManagerクラス
- EventManager::AddEvent(string 名前,void );
-
+ 
+ 
+ コピペ用
+ #include "EventSystemLibrary.hpp"
+ 
 */
 
-//可変長テンプレートで実装するのだ
+#define RETURN(x) -> decltype(x) { return x; }
+#define BINDSINTAX1 template<class LC,typename F = void (LC::*)(T...)> auto binding(F bf,LC * ins
+#define _ARG 0
+
 namespace EventSystemLibrary{
+    using namespace std::placeholders;//_1 _2で引数が呼べるように
+    
+    
+    //イベントに登録された関数を管理するクラス
+    
+    
     template<typename... T>
     class Event {
     private:
         std::vector< std::function< void (T...) > > func;
+        BINDSINTAX1 ,int ) RETURN ( std::bind(bf,ins,_1))
+        BINDSINTAX1 ,int,int ) RETURN ( std::bind(bf,ins,_1,_2))
+        BINDSINTAX1 ,int,int,int ) RETURN ( std::bind(bf,ins,_1,_2,_3))
+        BINDSINTAX1 ,int,int,int,int ) RETURN ( std::bind(bf,ins,_1,_2,_3,_4))
+        BINDSINTAX1 ,int,int,int,int,int ) RETURN ( std::bind(bf,ins,_1,_2,_3,_4,_5))
+        BINDSINTAX1 ,int,int,int,int,int,int ) RETURN ( std::bind(bf,ins,_1,_2,_3,_4,_5,_6))
+        BINDSINTAX1 ,int,int,int,int,int,int,int ) RETURN ( std::bind(bf,ins,_1,_2,_3,_4,_5,_6,_7))
     public:
-        void Invoke(T...);
-        void AddListener(void(*f)(T...));
-        ~Event();
+        void Invoke(T... t){
+            for (int i = 0; i < func.size(); i++) {
+                func[i](t...);
+            }
+        }
+        template<class LC,typename F = void (LC::*)(T...),typename... I>
+        void AddListener(F bf,LC * ins,I... i){
+            std::function< void (T...) > f = binding<LC>(bf,ins,i...);
+            func.push_back(f);
+        }
+        ~Event(){ func.clear(); }
     };
-    template<typename... T>
+    
+    
+    //Eventをコンテナで管理するクラス
+    
+    
+    template <typename... T>
     class EventManager {
     private:
         std::map< std::string, Event<T...> > events;
     public:
-        
-        void AddListener(std::string,void(*f)(T...));
-        void Invoke(std::string,T...);
-        ~EventManager();
+        template <class LC,typename F = void (LC::*)(T...),typename... I>
+        void AddListener(std::string name,F f,LC * ins, I... i){ events[name].template AddListener<LC>(f,ins,i...); }
+        void Invoke(std::string name,T... t)                   { events[name].Invoke(t...); }
+        ~EventManager(){ events.clear(); }
     };
-    
-    template<typename... T>
-    void Event<T...>::Invoke(T... t) {
-        for (int i = 0; i < func.size(); i++) {
-            func[i](t...);
-        }
-    }
-    template<typename... T>
-    void Event<T...>::AddListener(void(*f)(T...)) {
-        func.push_back(f);
-    }
-    template<typename... T>
-    Event<T...>::~Event() {
-        func.clear();
-    }
-    
-    template<typename... T>
-    void EventManager<T...>::AddListener(std::string  name, void(*f)(T...)){
-        events[name].AddListener(f);
-    }
-    template<typename... T>
-    void EventManager<T...>::Invoke(std::string name,T... t) {
-        return events[name].Invoke(t...);
-    }
-    template<typename... T>
-    EventManager<T...>::~EventManager(){
-        events.clear();
-    }
+
 }
+        //line130 events[name].template AddListener<LC>(f,ins,i...); <- なぜtemplateが必要なのかわからない
 /*
  
  誰かに褒められたい
